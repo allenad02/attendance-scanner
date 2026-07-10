@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Scanning Station</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; background: #f5f5f5; }
+    video { width: 100%; max-width: 400px; border-radius: 8px; }
+    #status { color: #555; font-size: 16px; margin-top: 10px; }
+    #result { margin-top: 20px; font-size: 18px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Attendance Scanning Station</h2>
+  <p>Point the camera at an employee's QR code.</p>
+  <video id="preview" playsinline></video>
+  <p id="status">Starting camera...</p>
+  <div id="result"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+  <script>
+    // ==== CONFIGURE THESE TWO VALUES ====
+    const WEB_APP_URL = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
+    const STATION_KEY = 'PASTE_YOUR_STATION_KEY_HERE';
+    // =====================================
+
+    const video = document.getElementById('preview');
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    let scanning = true;
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        video.srcObject = stream;
+        video.play();
+        statusEl.textContent = 'Camera ready — scanning...';
+        requestAnimationFrame(tick);
+      })
+      .catch(err => {
+        statusEl.textContent = 'Camera error: ' + err.message;
+      });
+
+    function tick() {
+      if (!scanning) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code && code.data) {
+          scanning = false;
+          statusEl.textContent = 'QR detected — processing...';
+          processScan(code.data);
+          return;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function processScan(qrText) {
+      // Extract the "id" parameter from the worker's QR link
+      let id;
+      try {
+        const url = new URL(qrText);
+        id = url.searchParams.get('id');
+      } catch (e) {
+        id = qrText.trim(); // fallback if QR just contains the raw ID
+      }
+
+      if (!id) {
+        resultEl.innerHTML = '<span style="color:red;">Could not read employee ID from QR.</span>';
+        setTimeout(resetScanner, 3000);
+        return;
+      }
+
+      const finalUrl = WEB_APP_URL + '?id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY);
+
+      fetch(finalUrl)
+        .then(res => res.text())
+        .then(html => {
+          // Pull just the message out of the returned confirmation page
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const title = doc.querySelector('h1') ? doc.querySelector('h1').textContent : 'Done';
+          const msg = doc.querySelector('p') ? doc.querySelector('p').textContent : '';
+          resultEl.innerHTML = '<div style="font-size:22px;">' + title + '</div><div>' + msg + '</div>';
+        })
+        .catch(err => {
+          resultEl.innerHTML = '<span style="color:red;">Error submitting scan: ' + err.message + '</span>';
+        })
+        .finally(() => {
+          setTimeout(resetScanner, 4000);
+        });
+    }
+
+    function resetScanner() {
+      resultEl.innerHTML = '';
+      statusEl.textContent = 'Camera ready — scanning...';
+      scanning = true;
+    }
+  </script>
+</body>
+</html>
