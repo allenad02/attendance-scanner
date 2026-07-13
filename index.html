@@ -117,6 +117,20 @@
       resultEl.innerHTML = '';
       statusEl.textContent = 'Camera ready — scanning...';
       scanning = true;
+
+      // Safety check: if video has stopped delivering frames, restart the stream
+      if (!video.srcObject || video.readyState < 2) {
+        statusEl.textContent = 'Restarting camera...';
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+          .then(stream => {
+            video.srcObject = stream;
+            video.play();
+            statusEl.textContent = 'Camera ready — scanning...';
+          })
+          .catch(err => {
+            statusEl.textContent = 'Camera error: ' + err.message;
+          });
+      }
     }
   </script>
 </body>
