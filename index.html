@@ -96,14 +96,11 @@
 
       const finalUrl = WEB_APP_URL + '?id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY);
 
-      fetch(finalUrl)
-        .then(res => res.text())
-        .then(html => {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(html, 'text/html');
-          const title = doc.querySelector('h1') ? doc.querySelector('h1').textContent : 'Done';
-          const msg = doc.querySelector('p') ? doc.querySelector('p').textContent : '';
-          resultEl.innerHTML = '<div style="font-size:22px;">' + title + '</div><div>' + msg + '</div>';
+      resultEl.innerHTML = '<div style="font-size:22px;color:#2e7d32;">Processing scan for ' + id + '...</div>';
+
+      fetch(finalUrl, { mode: 'no-cors' })
+        .then(() => {
+          resultEl.innerHTML = '<div style="font-size:22px;color:#2e7d32;">Scan submitted for ' + id + '</div><div>Check the Log sheet to confirm.</div>';
         })
         .catch(err => {
           resultEl.innerHTML = '<span style="color:red;">Error submitting scan: ' + err.message + '</span>';
