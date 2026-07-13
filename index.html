@@ -71,7 +71,6 @@
           scanning = false;
           statusEl.textContent = 'QR detected: ' + code.data;
           processScan(code.data);
-          return;
         }
       } else {
         debugEl.textContent = 'Waiting for video... readyState=' + video.readyState + ' width=' + video.videoWidth;
