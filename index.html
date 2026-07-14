@@ -15,6 +15,7 @@
 <body>
   <h2>Attendance Scanning Station</h2>
   <p>Point the camera at a QR code.</p>
+  <button onclick="openForgotQR()" style="margin-top:10px;padding:10px 20px;background:#f57c00;color:white;border:none;border-radius:6px;font-size:16px;">Forgot QR? Tap Here</button>
   <video id="preview" playsinline autoplay muted></video>
   <p id="status">Starting camera...</p>
   <div id="result"></div>
@@ -24,6 +25,33 @@
   <script>
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyq5gDPXTRFZALsZikg9debZ4m72L8XIo9-Zplkek9UBP2uMKNisqtN1VaRRXna9_E/exec';
     const STATION_KEY = 'Station2026Secure';
+    const ROSTER = [
+  {
+    "id": "INH001",
+    "name": "Alvin Contacto",
+    "photo": "https:
+  },
+  {
+    "id": "INH002",
+    "name": "Romeo Villanueva",
+    "photo": "https://lh3.googleusercontent.com/d/1fq_xFgxnR7WN-ycAVEp3PQDAbHSK2RyB"
+  },
+  {
+    "id": "INH003",
+    "name": "Melvin Collantes",
+    "photo": "https://lh3.googleusercontent.com/d/1FnsVhs30ibfyRpnRwi5EifHdlldEEXHa"
+  },
+  {
+    "id": "INH004",
+    "name": "Alvin Landazeras Beta",
+    "photo": ""
+  },
+  {
+    "id": "INH005",
+    "name": "Rey Catorce",
+    "photo": ""
+  }
+];
 
     const video = document.getElementById('preview');
     const statusEl = document.getElementById('status');
@@ -140,6 +168,62 @@
           });
       }
     }
+    let selectedEmployeeId = null;
+
+    function openForgotQR() {
+      document.getElementById('forgotModal').style.display = 'block';
+      document.getElementById('manualStatusStep').style.display = 'none';
+      renderEmployeeList(ROSTER);
+      document.getElementById('employeeSearch').value = '';
+    }
+
+    function closeForgotQR() {
+      document.getElementById('forgotModal').style.display = 'none';
+      selectedEmployeeId = null;
+    }
+
+    function renderEmployeeList(list) {
+      const container = document.getElementById('employeeList');
+      container.innerHTML = list.map(emp =>
+        '<div onclick="selectEmployee(\'' + emp.id + '\', \'' + emp.name.replace(/'/g, "\\'") + '\')" style="display:flex;align-items:center;padding:8px;border-bottom:1px solid #eee;cursor:pointer;">' +
+        (emp.photo ? '<img src="' + emp.photo + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;margin-right:10px;">' : '') +
+        '<span>' + emp.name + ' (' + emp.id + ')</span></div>'
+      ).join('');
+    }
+
+    document.getElementById('employeeSearch').addEventListener('input', function() {
+      const q = this.value.toLowerCase();
+      renderEmployeeList(ROSTER.filter(e => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q)));
+    });
+
+    function selectEmployee(id, name) {
+      selectedEmployeeId = id;
+      document.getElementById('selectedEmployeeName').textContent = name + ' (' + id + ')';
+      document.getElementById('manualStatusStep').style.display = 'block';
+    }
+
+    function submitManual(status) {
+      if (!selectedEmployeeId) return;
+      const url = WEB_APP_URL + '?mode=manual&id=' + encodeURIComponent(selectedEmployeeId) + '&status=' + encodeURIComponent(status) + '&key=' + encodeURIComponent(STATION_KEY);
+      fetch(url, { mode: 'no-cors' }).finally(() => {
+        resultEl.innerHTML = '<div style="font-size:20px;color:#f57c00;">' + status + ' (Manual) submitted for ' + selectedEmployeeId + '</div>';
+        closeForgotQR();
+        setTimeout(resetScanner, 4000);
+      });
+    }
   </script>
+  <div id="forgotModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:999;overflow-y:auto;">
+     <div style="background:white;max-width:500px;margin:30px auto;padding:20px;border-radius:8px;">
+       <h3>Select Employee</h3>
+       <input type="text" id="employeeSearch" placeholder="Search name..." style="width:100%;padding:8px;margin-bottom:10px;box-sizing:border-box;">
+       <div id="employeeList" style="max-height:300px;overflow-y:auto;"></div>
+       <div id="manualStatusStep" style="display:none;margin-top:15px;">
+         <p id="selectedEmployeeName" style="font-weight:bold;"></p>
+         <button onclick="submitManual('Time In')" style="padding:12px 20px;background:#2e7d32;color:white;border:none;border-radius:6px;margin-right:10px;">Time In</button>
+         <button onclick="submitManual('Time Out')" style="padding:12px 20px;background:#1565c0;color:white;border:none;border-radius:6px;">Time Out</button>
+       </div>
+       <button onclick="closeForgotQR()" style="margin-top:15px;padding:8px 16px;background:#999;color:white;border:none;border-radius:6px;">Cancel</button>
+     </div>
+   </div>
 </body>
 </html>
