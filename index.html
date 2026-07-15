@@ -505,12 +505,22 @@
     }
     let selectedEmployeeId = null;
 
-    function openForgotQR() {
-      document.getElementById('forgotModal').style.display = 'block';
-      document.getElementById('manualStatusStep').style.display = 'none';
-      renderEmployeeList(ROSTER);
-      document.getElementById('employeeSearch').value = '';
-    }
+    let searchListenerAttached = false;
+
+   function openForgotQR() {
+     document.getElementById('forgotModal').style.display = 'block';
+     document.getElementById('manualStatusStep').style.display = 'none';
+     renderEmployeeList(ROSTER);
+     document.getElementById('employeeSearch').value = '';
+
+     if (!searchListenerAttached) {
+       document.getElementById('employeeSearch').addEventListener('input', function() {
+         const q = this.value.toLowerCase();
+         renderEmployeeList(ROSTER.filter(e => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q)));
+       });
+       searchListenerAttached = true;
+     }
+   }
 
     function closeForgotQR() {
       document.getElementById('forgotModal').style.display = 'none';
@@ -525,11 +535,6 @@
         '<span>' + emp.name + ' (' + emp.id + ')</span></div>'
       ).join('');
     }
-
-    document.getElementById('employeeSearch').addEventListener('input', function() {
-      const q = this.value.toLowerCase();
-      renderEmployeeList(ROSTER.filter(e => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q)));
-    });
 
     function selectEmployee(id, name) {
       selectedEmployeeId = id;
