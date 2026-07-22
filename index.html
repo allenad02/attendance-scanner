@@ -459,29 +459,37 @@
       }
 
       const photoHtml = photo
-        ? '<img src="' + photo + '" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:4px solid #2e7d32;margin-bottom:10px;" />'
+        ? '<img src="' + photo + '" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:4px solid #999;margin-bottom:10px;" />'
         : '';
 
       resultEl.innerHTML =
         '<div>' + photoHtml + '</div>' +
-        '<div style="font-size:20px;color:#2e7d32;">' + (name || id) + '</div>' +
-        '<div style="font-size:14px;color:#777;">Processing scan...</div>';
+        '<div style="font-size:20px;color:#555;">' + (name || id) + '</div>' +
+        '<div style="font-size:14px;color:#777;">Checking...</div>';
 
-      const finalUrl = WEB_APP_URL + '?id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY);
+      const callbackName = 'scanResult_' + Date.now();
+      window[callbackName] = function(result) {
+        const color = result.color || '#555';
+        const resultPhoto = result.photoUrl || photo;
+        const resultPhotoHtml = resultPhoto
+          ? '<img src="' + resultPhoto + '" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:4px solid ' + color + ';margin-bottom:10px;" />'
+          : '';
+        resultEl.innerHTML =
+          '<div>' + resultPhotoHtml + '</div>' +
+          '<div style="font-size:20px;font-weight:bold;color:' + color + ';">' + result.title + '</div>' +
+          '<div style="font-size:14px;margin-top:4px;">' + result.message + '</div>';
+        delete window[callbackName];
+        setTimeout(resetScanner, 4000);
+      };
 
-      fetch(finalUrl, { mode: 'no-cors' })
-        .then(() => {
-          resultEl.innerHTML =
-            '<div>' + photoHtml + '</div>' +
-            '<div style="font-size:20px;color:#2e7d32;">' + (name || id) + '</div>' +
-            '<div style="font-size:14px;">Scan submitted — check Log sheet to confirm Time In/Out.</div>';
-        })
-        .catch(err => {
-          resultEl.innerHTML = '<span style="color:red;">Error submitting scan: ' + err.message + '</span>';
-        })
-        .finally(() => {
-          setTimeout(resetScanner, 4000);
-        });
+      const script = document.createElement('script');
+      script.src = WEB_APP_URL + '?mode=scan&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY) + '&callback=' + callbackName + '&_=' + Date.now();
+      script.onerror = function() {
+        resultEl.innerHTML = '<span style="color:red;">Error reaching server. Please try again.</span>';
+        setTimeout(resetScanner, 4000);
+      };
+      document.body.appendChild(script);
+      setTimeout(function() { script.remove(); }, 3000);
     }
 
     function resetScanner() {
