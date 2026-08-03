@@ -403,6 +403,15 @@
 
     debugEl.textContent = 'jsQR loaded: ' + (typeof jsQR !== 'undefined');
 
+    // Register Service Worker so this page can reopen offline
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('Service Worker registered'))
+          .catch((err) => console.log('Service Worker registration failed:', err));
+      });
+    }
+
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       .then(stream => {
         video.srcObject = stream;
