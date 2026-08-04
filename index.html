@@ -480,6 +480,12 @@
         '<div style="font-size:20px;color:#555;">' + (name || id) + '</div>' +
         '<div style="font-size:14px;color:#777;">Checking...</div>';
 
+      // Check if we're offline — if so, queue this scan instead of trying to send it
+      if (!navigator.onLine) {
+        queueOfflineScan(id, name, photo);
+        return;
+      }
+
       const callbackName = 'scanResult_' + Date.now();
       window[callbackName] = function(result) {
         const color = result.color || '#555';
@@ -572,6 +578,100 @@
         setTimeout(resetScanner, 4000);
       });
     }
+
+    // ==== OFFLINE QUEUE ====
+    const QUEUE_KEY = 'attendance_offline_queue';
+
+    function getQueue() {
+      try {
+        return JSON.parse(localStorage.getItem(QUEUE_KEY)) || [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveQueue(queue) {
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+      updateQueueBadge();
+    }
+
+    function queueOfflineScan(id, name, photo) {
+      const queue = getQueue();
+      queue.push({
+        id: id,
+        name: name || id,
+        photo: photo || '',
+        timestamp: new Date().toISOString()
+      });
+      saveQueue(queue);
+
+      resultEl.innerHTML =
+        '<div style="font-size:20px;color:#f57c00;">📥 Saved Offline</div>' +
+        '<div style="font-size:16px;margin-top:4px;">' + (name || id) + '</div>' +
+        '<div style="font-size:13px;color:#777;margin-top:4px;">Will sync once internet is back. (' + queue.length + ' pending)</div>';
+
+      setTimeout(resetScanner, 4000);
+    }
+
+    function updateQueueBadge() {
+      const queue = getQueue();
+      let badge = document.getElementById('queueBadge');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'queueBadge';
+        badge.style.cssText = 'position:fixed;top:10px;right:10px;background:#f57c00;color:white;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:bold;z-index:1000;';
+        document.body.appendChild(badge);
+      }
+      if (queue.length > 0) {
+        badge.style.display = 'block';
+        badge.textContent = queue.length + ' pending';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function syncOfflineQueue() {
+      const queue = getQueue();
+      if (queue.length === 0) return;
+
+      let badge = document.getElementById('queueBadge');
+      if (badge) badge.textContent = 'Syncing...';
+
+      syncNext(queue, 0);
+    }
+
+    function syncNext(queue, index) {
+      if (index >= queue.length) {
+        saveQueue([]);
+        return;
+      }
+      const item = queue[index];
+      const callbackName = 'syncResult_' + Date.now() + '_' + index;
+      window[callbackName] = function(result) {
+        delete window[callbackName];
+        syncNext(queue, index + 1);
+      };
+
+      const script = document.createElement('script');
+      script.src = WEB_APP_URL + '?mode=scan&id=' + encodeURIComponent(item.id) +
+        '&key=' + encodeURIComponent(STATION_KEY) +
+        '&callback=' + callbackName +
+        '&clientTime=' + encodeURIComponent(item.timestamp) +
+        '&_=' + Date.now();
+      script.onerror = function() {
+        // Stop syncing if one fails — keep remaining items queued for next try
+        saveQueue(queue.slice(index));
+      };
+      document.body.appendChild(script);
+      setTimeout(function() { script.remove(); }, 3000);
+    }
+
+    // Watch for connection changes
+    window.addEventListener('online', syncOfflineQueue);
+    window.addEventListener('load', function() {
+      updateQueueBadge();
+      if (navigator.onLine) syncOfflineQueue();
+    });
   </script>
   <div id="forgotModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:999;overflow-y:auto;">
      <div style="background:white;max-width:500px;margin:30px auto;padding:20px;border-radius:8px;">
