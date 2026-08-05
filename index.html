@@ -601,6 +601,14 @@
 
     function submitManual(status) {
       if (!selectedEmployeeId) return;
+
+      // Check if we're offline — if so, queue this manual entry instead
+      if (!navigator.onLine) {
+        queueOfflineManual(selectedEmployeeId, selectedEmployeeName, status);
+        closeForgotQR();
+        return;
+      }
+
       const url = WEB_APP_URL + '?mode=manual&id=' + encodeURIComponent(selectedEmployeeId) + '&status=' + encodeURIComponent(status) + '&key=' + encodeURIComponent(STATION_KEY);
       fetch(url, { mode: 'no-cors' }).finally(() => {
         resultEl.innerHTML = '<div style="font-size:20px;color:#f57c00;">' + status + ' (Manual) submitted for ' + selectedEmployeeId + '</div>';
@@ -638,6 +646,25 @@
       resultEl.innerHTML =
         '<div style="font-size:20px;color:#f57c00;">📥 Saved Offline</div>' +
         '<div style="font-size:16px;margin-top:4px;">' + (name || id) + '</div>' +
+        '<div style="font-size:13px;color:#777;margin-top:4px;">Will sync once internet is back. (' + queue.length + ' pending)</div>';
+
+      setTimeout(resetScanner, 4000);
+    }
+
+    function queueOfflineManual(id, name, status) {
+      const queue = getQueue();
+      queue.push({
+        id: id,
+        name: name || id,
+        status: status,
+        isManual: true,
+        timestamp: new Date().toISOString()
+      });
+      saveQueue(queue);
+
+      resultEl.innerHTML =
+        '<div style="font-size:20px;color:#f57c00;">📥 Saved Offline (Manual)</div>' +
+        '<div style="font-size:16px;margin-top:4px;">' + (name || id) + ' — ' + status + '</div>' +
         '<div style="font-size:13px;color:#777;margin-top:4px;">Will sync once internet is back. (' + queue.length + ' pending)</div>';
 
       setTimeout(resetScanner, 4000);
@@ -682,14 +709,23 @@
         syncNext(queue, index + 1);
       };
 
+      let src;
+      if (item.isManual) {
+        src = WEB_APP_URL + '?mode=manual&id=' + encodeURIComponent(item.id) +
+          '&status=' + encodeURIComponent(item.status) +
+          '&key=' + encodeURIComponent(STATION_KEY) +
+          '&clientTime=' + encodeURIComponent(item.timestamp) +
+          '&callback=' + callbackName + '&_=' + Date.now();
+      } else {
+        src = WEB_APP_URL + '?mode=scan&id=' + encodeURIComponent(item.id) +
+          '&key=' + encodeURIComponent(STATION_KEY) +
+          '&clientTime=' + encodeURIComponent(item.timestamp) +
+          '&callback=' + callbackName + '&_=' + Date.now();
+      }
+
       const script = document.createElement('script');
-      script.src = WEB_APP_URL + '?mode=scan&id=' + encodeURIComponent(item.id) +
-        '&key=' + encodeURIComponent(STATION_KEY) +
-        '&callback=' + callbackName +
-        '&clientTime=' + encodeURIComponent(item.timestamp) +
-        '&_=' + Date.now();
+      script.src = src;
       script.onerror = function() {
-        // Stop syncing if one fails — keep remaining items queued for next try
         saveQueue(queue.slice(index));
       };
       document.body.appendChild(script);
