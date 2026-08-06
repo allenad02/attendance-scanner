@@ -630,12 +630,50 @@
       }
     }
 
+    function countTodayQueueEntriesForId(id) {
+      const queue = getQueue();
+      const today = new Date().toDateString();
+      return queue.filter(function(item) {
+        return item.id === id && new Date(item.timestamp).toDateString() === today;
+      }).length;
+    }
+
+    function getLastQueueTimestampForId(id) {
+      const queue = getQueue();
+      const matches = queue.filter(function(item) { return item.id === id; });
+      if (matches.length === 0) return null;
+      return new Date(matches[matches.length - 1].timestamp);
+    }
+
     function saveQueue(queue) {
       localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
       updateQueueBadge();
     }
 
     function queueOfflineScan(id, name, photo) {
+      // Cooldown check — block if this ID was queued within the last 60 seconds
+      const lastTime = getLastQueueTimestampForId(id);
+      if (lastTime) {
+        const secondsSince = (new Date().getTime() - lastTime.getTime()) / 1000;
+        if (secondsSince < 60) {
+          resultEl.innerHTML =
+            '<div style="font-size:20px;color:#f9a825;">Already Queued</div>' +
+            '<div style="font-size:14px;margin-top:4px;">' + (name || id) + ', your last scan was just ' + Math.round(secondsSince) + ' second(s) ago.</div>';
+          setTimeout(resetScanner, 4000);
+          return;
+        }
+      }
+
+      // One Time In + one Time Out per day check
+      const todayCount = countTodayQueueEntriesForId(id);
+      if (todayCount >= 2) {
+        resultEl.innerHTML =
+          '<div style="font-size:20px;color:#6a1b9a;">Already Completed</div>' +
+          '<div style="font-size:14px;margin-top:4px;">' + (name || id) + ' already has Time In and Time Out queued for today.</div>';
+        setTimeout(resetScanner, 4000);
+        return;
+      }
+
       const queue = getQueue();
       queue.push({
         id: id,
@@ -654,6 +692,15 @@
     }
 
     function queueOfflineManual(id, name, status) {
+      const todayCount = countTodayQueueEntriesForId(id);
+      if (todayCount >= 2) {
+        resultEl.innerHTML =
+          '<div style="font-size:20px;color:#6a1b9a;">Already Completed</div>' +
+          '<div style="font-size:14px;margin-top:4px;">' + (name || id) + ' already has Time In and Time Out queued for today.</div>';
+        setTimeout(resetScanner, 4000);
+        return;
+      }
+
       const queue = getQueue();
       queue.push({
         id: id,
