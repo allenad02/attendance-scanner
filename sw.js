@@ -1,7 +1,8 @@
-const CACHE_NAME = 'attendance-scanner-v1';
+const CACHE_NAME = 'attendance-scanner-v2';
 const FILES_TO_CACHE = [
   './',
-  './index.html'
+  './index.html',
+  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js'
 ];
 
 // Install: save a copy of the page for offline use
