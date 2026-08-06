@@ -593,12 +593,14 @@
       ).join('');
     }
 
+    let selectedEmployeeName = null;
+
     function selectEmployee(id, name) {
       selectedEmployeeId = id;
+      selectedEmployeeName = name;
       document.getElementById('selectedEmployeeName').textContent = name + ' (' + id + ')';
       document.getElementById('manualStatusStep').style.display = 'block';
     }
-
     function submitManual(status) {
       if (!selectedEmployeeId) return;
 
