@@ -1,4 +1,4 @@
-const CACHE_NAME = 'attendance-scanner-v3';
+const CACHE_NAME = 'attendance-scanner-v4';
 const FILES_TO_CACHE = [
   './',
   './index.html',
