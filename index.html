@@ -8,6 +8,7 @@
     body { font-family: sans-serif; text-align: center; padding: 20px; background: #f5f5f5; }
     video { width: 100%; max-width: 400px; border-radius: 8px; background: #000; }
     #status { color: #555; font-size: 16px; margin-top: 10px; }
+    #locationStatus { color: #999; font-size: 12px; margin-top: 4px; }
     #debug { color: #999; font-size: 12px; margin-top: 10px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto; white-space: pre-wrap; }
     #result { margin-top: 20px; font-size: 18px; font-weight: bold; }
   </style>
@@ -18,6 +19,7 @@
   <button onclick="openForgotQR()" style="margin-top:10px;padding:10px 20px;background:#f57c00;color:white;border:none;border-radius:6px;font-size:16px;">Forgot QR? Tap Here</button>
   <video id="preview" playsinline autoplay muted></video>
   <p id="status">Starting camera...</p>
+  <p id="locationStatus">📍 Getting location...</p>
   <div id="result"></div>
   <div id="debug"></div>
 
@@ -621,13 +623,41 @@
     const statusEl = document.getElementById('status');
     const resultEl = document.getElementById('result');
     const debugEl = document.getElementById('debug');
+    const locationStatusEl = document.getElementById('locationStatus');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     let scanning = true;
     let frameCount = 0;
 
     debugEl.textContent = 'jsQR loaded: ' + (typeof jsQR !== 'undefined');
+     
+    // ==== GEOLOCATION ====
+let lastLocation = null;
+let locationWatchId = null;
 
+function initLocation() {
+  if (!('geolocation' in navigator)) {
+    locationStatusEl.textContent = '📍 Location not supported on this device';
+    return;
+  }
+  locationWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      lastLocation = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy
+      };
+      locationStatusEl.textContent = '📍 Location ready (±' + Math.round(pos.coords.accuracy) + 'm)';
+    },
+    (err) => {
+      lastLocation = null;
+      locationStatusEl.textContent = '📍 Location unavailable (' + err.message + ') — scans will still work';
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+  );
+}
+initLocation();
+    
     // Register Service Worker so this page can reopen offline
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -726,8 +756,13 @@
         setTimeout(resetScanner, 4000);
       };
 
+      let scanUrl = WEB_APP_URL + '?mode=scan&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY) + '&callback=' + callbackName + '&_=' + Date.now();
+      if (lastLocation) {
+        scanUrl += '&lat=' + encodeURIComponent(lastLocation.lat) + '&lng=' + encodeURIComponent(lastLocation.lng);
+      }
+
       const script = document.createElement('script');
-      script.src = WEB_APP_URL + '?mode=scan&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY) + '&callback=' + callbackName + '&_=' + Date.now();
+      script.src = scanUrl;
       script.onerror = function() {
         resultEl.innerHTML = '<span style="color:red;">Error reaching server. Please try again.</span>';
         setTimeout(resetScanner, 4000);
@@ -806,7 +841,10 @@
         return;
       }
 
-      const url = WEB_APP_URL + '?mode=manual&id=' + encodeURIComponent(selectedEmployeeId) + '&status=' + encodeURIComponent(status) + '&key=' + encodeURIComponent(STATION_KEY);
+      let url = WEB_APP_URL + '?mode=manual&id=' + encodeURIComponent(selectedEmployeeId) + '&status=' + encodeURIComponent(status) + '&key=' + encodeURIComponent(STATION_KEY);
+      if (lastLocation) {
+        url += '&lat=' + encodeURIComponent(lastLocation.lat) + '&lng=' + encodeURIComponent(lastLocation.lng);
+      }
       fetch(url, { mode: 'no-cors' }).finally(() => {
         resultEl.innerHTML = '<div style="font-size:20px;color:#f57c00;">' + status + ' (Manual) submitted for ' + selectedEmployeeId + '</div>';
         closeForgotQR();
