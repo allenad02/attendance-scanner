@@ -912,6 +912,8 @@ initLocation();
         id: id,
         name: name || id,
         photo: photo || '',
+        lat: lastLocation ? lastLocation.lat : null,
+        lng: lastLocation ? lastLocation.lng : null,
         timestamp: new Date().toISOString()
       });
       saveQueue(queue);
@@ -940,6 +942,8 @@ initLocation();
         name: name || id,
         status: status,
         isManual: true,
+        lat: lastLocation ? lastLocation.lat : null,
+        lng: lastLocation ? lastLocation.lng : null,
         timestamp: new Date().toISOString()
       });
       saveQueue(queue);
@@ -1005,6 +1009,10 @@ initLocation();
           '&callback=' + callbackName + '&_=' + Date.now();
       }
 
+      if (item.lat != null && item.lng != null) {
+        src += '&lat=' + encodeURIComponent(item.lat) + '&lng=' + encodeURIComponent(item.lng);
+      }
+      
       const script = document.createElement('script');
       script.src = src;
       script.onerror = function() {
