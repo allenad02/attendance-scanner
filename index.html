@@ -778,15 +778,18 @@ initLocation();
 
       const callbackName = 'scanResult_' + Date.now();
       window[callbackName] = function(result) {
+        clearTimeout(timeoutId);
         const color = result.color || '#555';
         const resultPhoto = result.photoUrl || photo;
         const resultPhotoHtml = resultPhoto
-          ? '<img src="' + resultPhoto + '" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:4px solid ' + color + ';margin-bottom:10px;" />'
+          ? '<img src="' + resultPhoto + '" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:4px solid white;margin-bottom:10px;" />'
           : '';
         resultEl.innerHTML =
-          '<div>' + resultPhotoHtml + '</div>' +
-          '<div style="font-size:20px;font-weight:bold;color:' + color + ';">' + result.title + '</div>' +
-          '<div style="font-size:14px;margin-top:4px;">' + result.message + '</div>';
+          '<div style="background:' + color + ';color:white;border-radius:12px;padding:20px;text-align:center;">' +
+          resultPhotoHtml +
+          '<div style="font-size:22px;font-weight:bold;">' + result.title + '</div>' +
+          '<div style="font-size:14px;margin-top:4px;">' + result.message + '</div>' +
+          '</div>';
         delete window[callbackName];
         setTimeout(resetScanner, 4000);
       };
