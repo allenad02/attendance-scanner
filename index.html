@@ -744,7 +744,7 @@ initLocation();
       requestAnimationFrame(tick);
     }
 
-    function processScan(qrText) {
+        function processScan(qrText) {
       let id, name, photo;
       try {
         const url = new URL(qrText);
@@ -761,6 +761,11 @@ initLocation();
         return;
       }
 
+      if (!navigator.onLine) {
+        queueOfflineScan(id, name, photo);
+        return;
+      }
+
       const photoHtml = photo
         ? '<img src="' + photo + '" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:4px solid #999;margin-bottom:10px;" />'
         : '';
@@ -770,13 +775,9 @@ initLocation();
         '<div style="font-size:20px;color:#555;">' + (name || id) + '</div>' +
         '<div style="font-size:14px;color:#777;">Checking...</div>';
 
-      // Check if we're offline — if so, queue this scan instead of trying to send it
-      if (!navigator.onLine) {
-        queueOfflineScan(id, name, photo);
-        return;
-      }
-
       const callbackName = 'scanResult_' + Date.now();
+      let timeoutId;
+
       window[callbackName] = function(result) {
         clearTimeout(timeoutId);
         const color = result.color || '#555';
@@ -802,11 +803,21 @@ initLocation();
       const script = document.createElement('script');
       script.src = scanUrl;
       script.onerror = function() {
+        clearTimeout(timeoutId);
+        delete window[callbackName];
         resultEl.innerHTML = '<span style="color:red;">Error reaching server. Please try again.</span>';
         setTimeout(resetScanner, 4000);
       };
       document.body.appendChild(script);
-      setTimeout(function() { script.remove(); }, 3000);
+
+      timeoutId = setTimeout(function() {
+        if (window[callbackName]) {
+          delete window[callbackName];
+          resultEl.innerHTML = '<span style="color:red;">Server took too long to respond. Please try again.</span>';
+          setTimeout(resetScanner, 4000);
+        }
+        script.remove();
+      }, 15000);
     }
 
     function resetScanner() {
