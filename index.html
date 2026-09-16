@@ -819,7 +819,7 @@ initLocation();
       requestAnimationFrame(tick);
     }
 
-        function processScan(qrText) {
+    function processScan(qrText) {
       let id, name, photo;
       try {
         const url = new URL(qrText);
@@ -880,7 +880,56 @@ initLocation();
       script.onerror = function() {
         clearTimeout(timeoutId);
         delete window[callbackName];
-        resultEl.innerHTML = '<span style="color:red;">Error reaching server. Please try again.</span>';
+        checkStatusAfterError(id, name, photo, 'Error reaching server.');
+      };
+      document.body.appendChild(script);
+
+      timeoutId = setTimeout(function() {
+        if (window[callbackName]) {
+          delete window[callbackName];
+          checkStatusAfterError(id, name, photo, 'Server took too long to respond.');
+        }
+        script.remove();
+      }, 15000);
+    }
+
+    function checkStatusAfterError(id, name, photo, reasonMsg) {
+      resultEl.innerHTML = '<div style="font-size:16px;color:#f57c00;">Checking if that went through...</div>';
+      const callbackName = 'statusCheck_' + Date.now();
+      let timeoutId;
+
+      window[callbackName] = function(result) {
+        clearTimeout(timeoutId);
+        delete window[callbackName];
+        if (result.status === 'confirmed') {
+          const color = result.color || '#555';
+          const resultPhoto = result.photoUrl || photo;
+          const resultPhotoHtml = resultPhoto
+            ? '<img src="' + resultPhoto + '" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:4px solid white;margin-bottom:10px;" />'
+            : '';
+          resultEl.innerHTML =
+            '<div style="background:' + color + ';color:white;border-radius:12px;padding:20px;text-align:center;">' +
+            resultPhotoHtml +
+            '<div style="font-size:20px;font-weight:bold;">✓ Actually went through</div>' +
+            '<div style="font-size:14px;margin-top:4px;">' + result.message + '</div>' +
+            '</div>';
+        } else {
+          resultEl.innerHTML =
+            '<div style="background:#d32f2f;color:white;border-radius:12px;padding:20px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:bold;">✗ ' + reasonMsg + '</div>' +
+            '<div style="font-size:13px;margin-top:6px;">Please try scanning again.</div>' +
+            '</div>';
+        }
+        setTimeout(resetScanner, 4000);
+      };
+
+      let statusUrl = WEB_APP_URL + '?mode=status&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY) + '&callback=' + callbackName + '&_=' + Date.now();
+      const script = document.createElement('script');
+      script.src = statusUrl;
+      script.onerror = function() {
+        clearTimeout(timeoutId);
+        delete window[callbackName];
+        resultEl.innerHTML = '<span style="color:red;">' + reasonMsg + ' (and could not verify — check your connection)</span>';
         setTimeout(resetScanner, 4000);
       };
       document.body.appendChild(script);
@@ -888,11 +937,10 @@ initLocation();
       timeoutId = setTimeout(function() {
         if (window[callbackName]) {
           delete window[callbackName];
-          resultEl.innerHTML = '<span style="color:red;">Server took too long to respond. Please try again.</span>';
-          setTimeout(resetScanner, 4000);
+          resultEl.innerHTML = '<span style="color:red;">' + reasonMsg + ' (and could not verify — check your connection)</span>';
         }
         script.remove();
-      }, 15000);
+      }, 10000);
     }
 
     function resetScanner() {
