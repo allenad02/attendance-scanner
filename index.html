@@ -11,9 +11,14 @@
     #locationStatus { color: #999; font-size: 12px; margin-top: 4px; }
     #debug { color: #999; font-size: 12px; margin-top: 10px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto; white-space: pre-wrap; }
     #result { margin-top: 20px; font-size: 18px; font-weight: bold; }
+    #siteBanner { max-width: 400px; margin: 30px auto 12px auto; padding: 10px 14px; border-radius: 8px; font-weight: bold; font-size: 16px; }
+    #siteBanner.site-ok { background: #14213D; color: #ffffff; }
+    #siteBanner.site-missing { background: #fff3e0; color: #b45309; border: 2px solid #f57c00; }
+    #siteBanner.site-missing span { display: block; margin-top: 4px; font-weight: normal; font-size: 13px; }
   </style>
 </head>
 <body>
+  <div id="siteBanner"></div>
   <h2>Attendance Scanning Station</h2>
   <p>Point the camera at a QR code.</p>
   <button onclick="openForgotQR()" style="margin-top:10px;padding:10px 20px;background:#f57c00;color:white;border:none;border-radius:6px;font-size:16px;">Forgot QR? Tap Here</button>
@@ -525,7 +530,7 @@
   },
   {
     "id": "INH100",
-    "name": "Jovit Reginio",
+    "name": "Jovit Regino",
     "photo": ""
   },
   {
@@ -727,6 +732,101 @@
     "id": "INH140",
     "name": "Joshua Sabinada",
     "photo": ""
+  },
+  {
+    "id": "INH141",
+    "name": "Jerec Delco",
+    "photo": ""
+  },
+  {
+    "id": "INH142",
+    "name": "Danmark Almojuela ",
+    "photo": ""
+  },
+  {
+    "id": "INH143",
+    "name": "Muslimin Ampayok",
+    "photo": ""
+  },
+  {
+    "id": "INH144",
+    "name": "Ian Papong ",
+    "photo": ""
+  },
+  {
+    "id": "INH145",
+    "name": "Liberty Buncaras",
+    "photo": ""
+  },
+  {
+    "id": "INH146",
+    "name": "Welan Boniza",
+    "photo": ""
+  },
+  {
+    "id": "INH147",
+    "name": "Dinesa Dicipolo",
+    "photo": ""
+  },
+  {
+    "id": "INH148",
+    "name": "Nelma Abayon",
+    "photo": ""
+  },
+  {
+    "id": "INH149",
+    "name": "Ryan Ignacio",
+    "photo": ""
+  },
+  {
+    "id": "INH150",
+    "name": "Jac Richard Lasan",
+    "photo": ""
+  },
+  {
+    "id": "INH151",
+    "name": "Erma Dando",
+    "photo": ""
+  },
+  {
+    "id": "INH152",
+    "name": "Jerson Pegalan",
+    "photo": ""
+  },
+  {
+    "id": "INH153",
+    "name": "Jonathan Bucag",
+    "photo": ""
+  },
+  {
+    "id": "INH154",
+    "name": "Jess Delco",
+    "photo": ""
+  },
+  {
+    "id": "INH155",
+    "name": "Arjay Bartolata",
+    "photo": ""
+  },
+  {
+    "id": "INH156",
+    "name": "Salvado Viernes",
+    "photo": ""
+  },
+  {
+    "id": "INH157",
+    "name": "Jeron Dacles",
+    "photo": ""
+  },
+  {
+    "id": "INH158",
+    "name": "Michael Cambaya",
+    "photo": ""
+  },
+  {
+    "id": "INH159",
+    "name": "Erwin Ayade",
+    "photo": ""
   }
 ];
     const video = document.getElementById('preview');
@@ -740,7 +840,41 @@
     let frameCount = 0;
 
     debugEl.textContent = 'jsQR loaded: ' + (typeof jsQR !== 'undefined');
-     
+
+    // ==== SITE (which site this scanner phone belongs to) ====
+    // Set by opening the scanner with ?site=SiteName in the link. It is remembered on this
+    // phone, so the scanner keeps its site even if it is later opened without the ?site= part.
+    const SITE_KEY = 'scanner_site';
+    const SITE = (function () {
+      const fromUrl = (new URL(window.location.href).searchParams.get('site') || '').trim();
+      try {
+        if (fromUrl) {
+          localStorage.setItem(SITE_KEY, fromUrl);
+          return fromUrl;
+        }
+        return (localStorage.getItem(SITE_KEY) || '').trim();
+      } catch (e) {
+        return fromUrl;
+      }
+    })();
+
+    function renderSiteBanner() {
+      const el = document.getElementById('siteBanner');
+      if (SITE) {
+        el.className = 'site-ok';
+        el.textContent = '📍 Site: ' + SITE;
+      } else {
+        el.className = 'site-missing';
+        el.innerHTML = '⚠️ No site set for this scanner' +
+          '<span>Scans will be recorded under each worker\'s home department. Please open this site\'s scanner link.</span>';
+      }
+    }
+    renderSiteBanner();
+
+    function siteParam(site) {
+      return site ? '&site=' + encodeURIComponent(site) : '';
+    }
+
     // ==== GEOLOCATION ====
 let lastLocation = null;
 let locationWatchId = null;
@@ -836,6 +970,9 @@ initLocation();
         return;
       }
 
+      // The moment of the scan, kept in case the reply is lost and the scan has to be retried
+      const scanTime = new Date().toISOString();
+
       if (!navigator.onLine) {
         queueOfflineScan(id, name, photo);
         return;
@@ -870,7 +1007,7 @@ initLocation();
         setTimeout(resetScanner, 4000);
       };
 
-      let scanUrl = WEB_APP_URL + '?mode=scan&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY) + '&callback=' + callbackName + '&_=' + Date.now();
+      let scanUrl = WEB_APP_URL + '?mode=scan&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY) + siteParam(SITE) + '&callback=' + callbackName + '&_=' + Date.now();
       if (lastLocation) {
         scanUrl += '&lat=' + encodeURIComponent(lastLocation.lat) + '&lng=' + encodeURIComponent(lastLocation.lng);
       }
@@ -880,20 +1017,20 @@ initLocation();
       script.onerror = function() {
         clearTimeout(timeoutId);
         delete window[callbackName];
-        checkStatusAfterError(id, name, photo, 'Error reaching server.');
+        checkStatusAfterError(id, name, photo, scanTime);
       };
       document.body.appendChild(script);
 
       timeoutId = setTimeout(function() {
         if (window[callbackName]) {
           delete window[callbackName];
-          checkStatusAfterError(id, name, photo, 'Server took too long to respond.');
+          checkStatusAfterError(id, name, photo, scanTime);
         }
         script.remove();
       }, 15000);
     }
 
-    function checkStatusAfterError(id, name, photo, reasonMsg) {
+    function checkStatusAfterError(id, name, photo, scanTime) {
       resultEl.innerHTML = '<div style="font-size:16px;color:#f57c00;">Checking if that went through...</div>';
       const callbackName = 'statusCheck_' + Date.now();
       let timeoutId;
@@ -913,15 +1050,12 @@ initLocation();
             '<div style="font-size:20px;font-weight:bold;">✓ Actually went through</div>' +
             '<div style="font-size:14px;margin-top:4px;">' + result.message + '</div>' +
             '</div>';
-        } else {
-          resultEl.innerHTML =
-            '<div style="background:#d32f2f;color:white;border-radius:12px;padding:20px;text-align:center;">' +
-            '<div style="font-size:20px;font-weight:bold;">✗ ' + reasonMsg + '</div>' +
-            '<div style="font-size:13px;margin-top:6px;">Please try scanning again.</div>' +
-            '</div>';
-        }
         setTimeout(resetScanner, 4000);
-      };
+      } else {
+        // Not recorded yet: keep it and retry in the background
+        queueRetryScan(id, name, photo, scanTime);
+      }
+    };
 
       let statusUrl = WEB_APP_URL + '?mode=status&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(STATION_KEY) + '&callback=' + callbackName + '&_=' + Date.now();
       const script = document.createElement('script');
@@ -929,15 +1063,15 @@ initLocation();
       script.onerror = function() {
         clearTimeout(timeoutId);
         delete window[callbackName];
-        resultEl.innerHTML = '<span style="color:red;">' + reasonMsg + ' (and could not verify — check your connection)</span>';
-        setTimeout(resetScanner, 4000);
+        // Could not check either: keep the scan and retry in the background
+        queueRetryScan(id, name, photo, scanTime);
       };
       document.body.appendChild(script);
 
       timeoutId = setTimeout(function() {
         if (window[callbackName]) {
           delete window[callbackName];
-          resultEl.innerHTML = '<span style="color:red;">' + reasonMsg + ' (and could not verify — check your connection)</span>';
+          queueRetryScan(id, name, photo, scanTime);
         }
         script.remove();
       }, 10000);
@@ -1005,23 +1139,66 @@ initLocation();
     }
     function submitManual(status) {
       if (!selectedEmployeeId) return;
+      const id = selectedEmployeeId;
+      const name = selectedEmployeeName;
+      const entryTime = new Date().toISOString();
+      closeForgotQR();
 
       // Check if we're offline — if so, queue this manual entry instead
       if (!navigator.onLine) {
-        queueOfflineManual(selectedEmployeeId, selectedEmployeeName, status);
-        closeForgotQR();
+        queueOfflineManual(id, name, status);
         return;
       }
 
-      let url = WEB_APP_URL + '?mode=manual&id=' + encodeURIComponent(selectedEmployeeId) + '&status=' + encodeURIComponent(status) + '&key=' + encodeURIComponent(STATION_KEY);
+      resultEl.innerHTML = '<div style="font-size:16px;color:#777;">Submitting ' + status + ' for ' + name + '...</div>';
+
+      const callbackName = 'manualResult_' + Date.now();
+      let timeoutId;
+      let finished = false;
+
+      function lost() {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeoutId);
+        delete window[callbackName];
+        // Reply lost: keep it and retry in the background (the server ignores repeats)
+        queueRetryManual(id, name, status, entryTime);
+      }
+
+      window[callbackName] = function(result) {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeoutId);
+        delete window[callbackName];
+        if (result && result.status === 'success') {
+          const color = status === 'Time In' ? '#2e7d32' : '#c62828';
+          resultEl.innerHTML =
+            '<div style="background:' + color + ';color:white;border-radius:12px;padding:20px;text-align:center;">' +
+            '<div style="font-size:22px;font-weight:bold;">' + status + ' Recorded (Manual)</div>' +
+            '<div style="font-size:14px;margin-top:4px;">' + name + (SITE ? ' • ' + SITE : '') + '</div>' +
+            '</div>';
+        } else {
+          resultEl.innerHTML =
+            '<div style="background:#d32f2f;color:white;border-radius:12px;padding:20px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:bold;">Not recorded</div>' +
+            '<div style="font-size:14px;margin-top:4px;">' + ((result && result.title) || 'Please try again.') + '</div>' +
+            '</div>';
+        }
+        setTimeout(resetScanner, 4000);
+      };
+
+      let url = WEB_APP_URL + '?mode=manual&id=' + encodeURIComponent(id) + '&status=' + encodeURIComponent(status) +
+        '&key=' + encodeURIComponent(STATION_KEY) + '&clientTime=' + encodeURIComponent(entryTime) + siteParam(SITE);
       if (lastLocation) {
         url += '&lat=' + encodeURIComponent(lastLocation.lat) + '&lng=' + encodeURIComponent(lastLocation.lng);
       }
-      fetch(url, { mode: 'no-cors' }).finally(() => {
-        resultEl.innerHTML = '<div style="font-size:20px;color:#f57c00;">' + status + ' (Manual) submitted for ' + selectedEmployeeId + '</div>';
-        closeForgotQR();
-        setTimeout(resetScanner, 4000);
-      });
+      url += '&callback=' + callbackName + '&_=' + Date.now();
+
+      const script = document.createElement('script');
+      script.src = url;
+      script.onerror = lost;
+      document.body.appendChild(script);
+      timeoutId = setTimeout(function() { lost(); script.remove(); }, 15000);
     }
 
     // ==== OFFLINE QUEUE ====
@@ -1086,6 +1263,7 @@ initLocation();
         photo: photo || '',
         lat: lastLocation ? lastLocation.lat : null,
         lng: lastLocation ? lastLocation.lng : null,
+        site: SITE,
         timestamp: new Date().toISOString()
       });
       saveQueue(queue);
@@ -1116,6 +1294,7 @@ initLocation();
         isManual: true,
         lat: lastLocation ? lastLocation.lat : null,
         lng: lastLocation ? lastLocation.lng : null,
+        site: SITE,
         timestamp: new Date().toISOString()
       });
       saveQueue(queue);
@@ -1126,6 +1305,50 @@ initLocation();
         '<div style="font-size:13px;color:#777;margin-top:4px;">Will sync once internet is back. (' + queue.length + ' pending)</div>';
 
       setTimeout(resetScanner, 4000);
+    }
+
+    // ==== RETRY WHEN A REPLY IS LOST (unstable or switching connection) ====
+    // The scan keeps its original time. The server ignores repeats of the same scan,
+    // so a retry never creates a second entry, even if the first attempt went through.
+    function queueRetryItem(item, label) {
+      const queue = getQueue();
+      queue.push(item);
+      saveQueue(queue);
+
+      resultEl.innerHTML =
+        '<div style="background:#f57c00;color:white;border-radius:12px;padding:20px;text-align:center;">' +
+        '<div style="font-size:20px;font-weight:bold;">⏳ Saved — will confirm when the connection is stable</div>' +
+        '<div style="font-size:14px;margin-top:4px;">' + label + '</div>' +
+        '<div style="font-size:12px;margin-top:6px;">No need to scan again. (' + queue.length + ' pending)</div>' +
+        '</div>';
+
+      setTimeout(resetScanner, 4000);
+      setTimeout(syncOfflineQueue, 5000);
+    }
+
+    function queueRetryScan(id, name, photo, scanTime) {
+      queueRetryItem({
+        id: id,
+        name: name || id,
+        photo: photo || '',
+        lat: lastLocation ? lastLocation.lat : null,
+        lng: lastLocation ? lastLocation.lng : null,
+        site: SITE,
+        timestamp: scanTime
+      }, name || id);
+    }
+
+    function queueRetryManual(id, name, status, entryTime) {
+      queueRetryItem({
+        id: id,
+        name: name || id,
+        status: status,
+        isManual: true,
+        lat: lastLocation ? lastLocation.lat : null,
+        lng: lastLocation ? lastLocation.lng : null,
+        site: SITE,
+        timestamp: entryTime
+      }, (name || id) + ' — ' + status + ' (Manual)');
     }
 
     function updateQueueBadge() {
@@ -1145,25 +1368,57 @@ initLocation();
       }
     }
 
+    let isSyncing = false;
+
     function syncOfflineQueue() {
+      if (isSyncing || !navigator.onLine) return;   // never run two syncs at once
       const queue = getQueue();
       if (queue.length === 0) return;
 
+      isSyncing = true;
       let badge = document.getElementById('queueBadge');
       if (badge) badge.textContent = 'Syncing...';
 
       syncNext(queue, 0);
     }
 
+    // Remove only the items that were sent; keep anything saved while syncing
+    function finishSync(sentCount) {
+      saveQueue(getQueue().slice(sentCount));
+      isSyncing = false;
+    }
+
     function syncNext(queue, index) {
       if (index >= queue.length) {
-        saveQueue([]);
+        finishSync(queue.length);
         return;
       }
       const item = queue[index];
       const callbackName = 'syncResult_' + Date.now() + '_' + index;
-      window[callbackName] = function(result) {
+      let done = false;
+      let timeoutId;
+      let script;
+
+      // No reply (connection dropped again): stop here and try the rest later
+      function stop() {
+        if (done) return;
+        done = true;
+        clearTimeout(timeoutId);
         delete window[callbackName];
+        if (script) script.remove();
+        finishSync(index);
+      }
+
+      window[callbackName] = function(result) {
+        if (done) return;
+        done = true;
+        clearTimeout(timeoutId);
+        delete window[callbackName];
+        if (script) script.remove();
+        if (result && result.title === 'Busy') {   // server was busy: keep it for the next try
+          finishSync(index);
+          return;
+        }
         syncNext(queue, index + 1);
       };
 
@@ -1184,18 +1439,23 @@ initLocation();
       if (item.lat != null && item.lng != null) {
         src += '&lat=' + encodeURIComponent(item.lat) + '&lng=' + encodeURIComponent(item.lng);
       }
-      
-      const script = document.createElement('script');
+      src += siteParam(item.site);
+
+      script = document.createElement('script');
       script.src = src;
-      script.onerror = function() {
-        saveQueue(queue.slice(index));
-      };
+      script.onerror = stop;
       document.body.appendChild(script);
-      setTimeout(function() { script.remove(); }, 3000);
+      timeoutId = setTimeout(stop, 15000);
     }
 
     // Watch for connection changes
     window.addEventListener('online', syncOfflineQueue);
+
+    // On a weak connection the phone may stay "online" while requests fail,
+    // so also retry pending items every 20 seconds
+    setInterval(function() {
+      if (getQueue().length > 0) syncOfflineQueue();
+    }, 20000);
     window.addEventListener('load', function() {
       updateQueueBadge();
       if (navigator.onLine) syncOfflineQueue();
